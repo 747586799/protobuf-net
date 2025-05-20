@@ -288,6 +288,29 @@ namespace protogen.CodeGenerators
             {
                 return TryGetOptionValue(TypeInfo, fieldNumber, out value);
             }
+
+            public DescriptorProto TryFindMessageByOptionValue<T>(FileDescriptorProto file, int fieldNumber, T value)
+            {
+                foreach(var i in file.MessageTypes)
+                {
+                    var res = TryFindMessageByOptionValueSub(i, fieldNumber, value);
+                    if (res != null) return res;
+                }
+                return null;
+            }
+
+            DescriptorProto TryFindMessageByOptionValueSub<T>(DescriptorProto proto, int fieldNumber, T value)
+            {
+                if (TryGetOptionValue(proto, fieldNumber, out T newVal) && newVal.Equals(value))
+                    return proto;
+                foreach(var i in proto.NestedTypes)
+                {
+                    var res = TryFindMessageByOptionValueSub(i, fieldNumber, value);
+                    if(res != null) 
+                        return res;
+                }
+                return null;
+            }
         }
         public class EnumModel : ModelBase
         {
@@ -373,6 +396,8 @@ namespace protogen.CodeGenerators
                         continue;
                     if (!string.IsNullOrEmpty(ignorePackage) && i.Package.StartsWith(ignorePackage))
                         continue;
+                    if (i.Options == null)
+                        i.Options = new Google.Protobuf.Reflection.FileOptions();
                     if (string.IsNullOrEmpty(i.Options.CsharpNamespace))
                         i.Options.CsharpNamespace = set.DefaultPackage;
                     string path = Path.GetDirectoryName(i.Name);
@@ -471,7 +496,16 @@ namespace protogen.CodeGenerators
         string GenerateCode(string templateName, string template, ModelBase model, int ident)
         {
             var task = engine.CompileRenderStringAsync(templateName, template, model);
-            task.Wait();
+
+            try
+            {
+                task.Wait();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+                throw new Exception("Generate failed");
+            }
             var res = task.Result;
             if (ident > 0)
             {

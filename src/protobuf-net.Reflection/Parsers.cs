@@ -96,7 +96,8 @@ namespace Google.Protobuf.Reflection
         /// </summary>
         public void AddImportPath(string path)
         {
-            importPaths.Add(path);
+            if (!string.IsNullOrEmpty(path))
+                importPaths.Add(path);
         }
 
         /// <summary>

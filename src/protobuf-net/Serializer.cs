@@ -169,16 +169,7 @@ namespace ProtoBuf
         public static void PrepareSerializer<[DynamicallyAccessedMembers(DynamicAccess.ContractType)] T>()
             => RuntimeTypeModel.Default[typeof(T)].CompileInPlace();
 
-        /// <summary>
-        /// Creates a new IFormatter that uses protocol-buffer [de]serialization.
-        /// </summary>
-        /// <typeparam name="T">The type of object to be [de]deserialized by the formatter.</typeparam>
-        /// <returns>A new IFormatter to be used during [de]serialization.</returns>
-        public static System.Runtime.Serialization.IFormatter CreateFormatter<[DynamicallyAccessedMembers(DynamicAccess.ContractType)] T>()
-        {
-            return RuntimeTypeModel.Default.CreateFormatter(typeof(T));
-        }
-
+       
         /// <summary>
         /// Reads a sequence of consecutive length-prefixed items from a stream, using
         /// either base-128 or fixed-length prefixes. Base-128 prefixes with a tag

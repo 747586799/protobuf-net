@@ -1834,53 +1834,6 @@ namespace ProtoBuf.Meta
         /// </summary>
         public event TypeFormatEventHandler DynamicTypeFormatting;
 
-        /// <summary>
-        /// Creates a new IFormatter that uses protocol-buffer [de]serialization.
-        /// </summary>
-        /// <returns>A new IFormatter to be used during [de]serialization.</returns>
-        /// <param name="type">The type of object to be [de]deserialized by the formatter.</param>
-        public System.Runtime.Serialization.IFormatter CreateFormatter([DynamicallyAccessedMembers(DynamicAccess.ContractType)] Type type)
-        {
-            return new Formatter(this, type);
-        }
-
-        internal sealed class Formatter : System.Runtime.Serialization.IFormatter
-        {
-            private readonly TypeModel model;
-            private readonly Type type;
-            internal Formatter(TypeModel model, Type type)
-            {
-                if (model is null) ThrowHelper.ThrowArgumentNullException(nameof(model));
-                if (type is null) ThrowHelper.ThrowArgumentNullException(nameof(model));
-                this.model = model;
-                this.type = type;
-            }
-
-            public System.Runtime.Serialization.SerializationBinder Binder { get; set; }
-
-            public System.Runtime.Serialization.StreamingContext Context { get; set; }
-
-            public object Deserialize(Stream serializationStream)
-            {
-                using var state = ProtoReader.State.Create(serializationStream, model, Context);
-                return state.DeserializeRootFallback(null, type);
-            }
-
-            public void Serialize(Stream serializationStream, object graph)
-            {
-                var state = ProtoWriter.State.Create(serializationStream, model, Context);
-                try
-                {
-                    model.SerializeRootFallback(ref state, graph);
-                }
-                finally
-                {
-                    state.Dispose();
-                }
-            }
-
-            public System.Runtime.Serialization.ISurrogateSelector SurrogateSelector { get; set; }
-        }
 
 #if DEBUG // this is used by some unit tests only, to ensure no buffering when buffering is disabled
         /// <summary>
