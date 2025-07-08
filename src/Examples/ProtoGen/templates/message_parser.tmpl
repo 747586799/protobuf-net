@@ -1,4 +1,8 @@
 using Google.Protobuf;
+using System.IO;
+@using System
+@using Google.Protobuf.Reflection
+@using System.Text
 @{
     // Utility functions for code generation
     string GetOpcodeParser(Google.Protobuf.Reflection.DescriptorProto proto)
@@ -7,14 +11,22 @@ using Google.Protobuf;
         GetOpcodeParserSub(sb, proto);
         return sb.ToString();
     }
+    int GetMessageId(DescriptorProto proto)
+    {
+        // 优先读取选项值
+        if (Model.TryGetOptionValue(proto, 54321, out int msgId))
+            return msgId;
+            
+        // 备用方案：使用消息名的哈希值
+        return Math.Abs(proto.Name.GetHashCode()) % 10000 + 1000; 
+    }
     void GetOpcodeParserSub(System.Text.StringBuilder sb, Google.Protobuf.Reflection.DescriptorProto proto)
     {	
-        if(Model.TryGetOptionValue(proto, 54321, out int msgId))
-        {
-           sb.AppendLine($"                case {msgId}:");
-           sb.AppendLine($"                    msg = new {Model.GetMessageTypeName(proto)}();");
-           sb.AppendLine("                    break;");
-        }
+        int msgId = GetMessageId(proto); // 改用新方法
+        sb.AppendLine($"case {msgId}:");
+        sb.AppendLine($"    msg = new (){Model.GetMessageTypeName(proto)}();");
+        sb.AppendLine("    break;");
+        
         foreach(var i in proto.NestedTypes)
         {
            GetOpcodeParserSub(sb, i);
@@ -28,15 +40,30 @@ using Google.Protobuf;
 @if(!string.IsNullOrEmpty(@Model.Files.DefaultPackage))
 {
 @:namespace @Model.Files.DefaultPackage
+@:{	
 }
-{	
     public abstract class MessageBase
     {
         public virtual int MessageId => 0;
 
         public abstract void MergeFrom(CodedInputStream input);
         public abstract void WriteTo(CodedOutputStream output);        
+        public byte[] ToByteArray()
+        {
+            using (var ms = new MemoryStream())
+            {
+                // 创建输出流
+                CodedOutputStream cos = new CodedOutputStream(ms);
 
+                WriteTo(cos);
+
+                // 刷新流，确保写入完成
+                cos.Flush();
+
+                // 获取二进制数据
+                return ms.ToArray();
+            }
+        }
         protected int memoizedSerializedSize = -1;
         public int SerializedSize 
         {
@@ -51,32 +78,13 @@ using Google.Protobuf;
         protected abstract int CalcSerializedSize();
     }
 
-    public static class MessageParser
+    public abstract class ParserBase<T> where T : MessageBase
     {
-        public static MessageBase ParseMessage(int opcode, System.IO.Stream stream)
-        {
-            MessageBase msg = null;
-            switch(opcode)
-            {
-                @foreach(var i in Model.Files.Files)
-                {
-                    @foreach(var type in i.MessageTypes)
-                    {
-                        string content = GetOpcodeParser(type);
-                        @if(!string.IsNullOrEmpty(content))
-                        {
-@:@Raw(content)
-                        }
-                    }
-                }
-            }
-            if(msg == null)
-            {
-                throw new System.Exception($"Unknown opcode:{opcode}");
-            }
-            CodedInputStream input = new CodedInputStream(stream);
-            msg.MergeFrom(input);
-            return msg;
-        }
+        public abstract T ParseFrom(ByteString byteString);
+        
+        public abstract T ParseFrom(byte[] bytes);
     }
+@if(!string.IsNullOrEmpty(@Model.Files.DefaultPackage))
+{
+@:}
 }

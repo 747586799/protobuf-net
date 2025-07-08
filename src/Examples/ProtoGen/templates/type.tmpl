@@ -1,17 +1,83 @@
 public sealed class @Model.TypeInfo.Name : MessageBase
 {    
     @{
+        // 生成 Parser 类型名称
+        string parserTypeName = $"Parser_{Model.TypeInfo.Name}";
+    }
+    public static @(parserTypeName) Parser = new @(parserTypeName)();
+    public class @(parserTypeName) : ParserBase<@Model.TypeInfo.Name>
+    {
+        public override @Model.TypeInfo.Name ParseFrom(ByteString byteString)
+        {
+            CodedInputStream cis = new CodedInputStream(byteString.ToByteArray());
+            var instance = new @(Model.TypeInfo.Name)();
+            using (cis)
+            {
+                instance.MergeFrom(cis);
+            }
+            return instance;
+        }
+
+        public override @Model.TypeInfo.Name ParseFrom(byte[] bytes)
+        {
+            CodedInputStream cis = new CodedInputStream(bytes);
+            var instance = new @(Model.TypeInfo.Name)();
+            using (cis)
+            {
+                instance.MergeFrom(cis);
+            }
+            return instance;
+        }
+    }
+    @{
         //Helper functions for code generation
+        string FormatNamespace(string ns)
+        {
+            if (string.IsNullOrEmpty(ns))
+                return "Unknown";
+            
+            // 按点分割，每个部分首字母大写
+            var parts = ns.Split('.');
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(parts[i]))
+                {
+                    parts[i] = char.ToUpper(parts[i][0]) + parts[i].Substring(1);
+                }
+            }
+            return string.Join(".", parts);
+        }
         Model.GetCodeNamespace = new protogen.CodeGenerators.RazorCodeGenerator.GetCodeNamespaceDelegate((fdp)=>
         {
-            var name = fdp.Options.CsharpNamespace;
+            var name = fdp.Options?.CsharpNamespace;
             if (string.IsNullOrEmpty(name))
-                name = Model.GetFileDescriptorSet(fdp).DefaultPackage;
-            return name;
+                name = fdp.Package;
+            return FormatNamespace(name);
         });
         string GetMessageTypeName(Google.Protobuf.Reflection.FieldDescriptorProto proto)
         {
             return @Model.GetMessageTypeName(proto);
+        }
+
+        string GetHasDefaultValue(Google.Protobuf.Reflection.FieldDescriptorProto proto)
+        {
+            if(Model.IsRepeated(proto))
+                return " = true";
+            else return "";
+        }
+
+        string GetDefaultValue(Google.Protobuf.Reflection.FieldDescriptorProto proto, bool ignoreRepeated = false)
+        {
+            if(!ignoreRepeated && Model.IsRepeated(proto))
+                return " = new()";
+            switch(proto.type)
+            {
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBytes:
+                    return " = ByteString.Empty";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeString:
+                    return " = string.Empty";
+            }
+            return "";
         }
 
         string GetCSharpType(Google.Protobuf.Reflection.FieldDescriptorProto proto, bool ignoreRepeated = false)
@@ -188,11 +254,17 @@ public sealed class @Model.TypeInfo.Name : MessageBase
     }
     @foreach(var val in @Model.TypeInfo.EnumTypes)
     {
-@:@Raw(Model.GenerateEnum(val, 1))
+        @:public partial class Types
+        @:{
+    @:@Raw(Model.GenerateEnum(val, 1))
+        @:}
     }
     @foreach(var val in @Model.TypeInfo.NestedTypes)
     {
-@:@Raw(Model.GenerateType(val, 1))
+        @:public partial class Types
+        @:{
+            @:@Raw(Model.GenerateType(val, 1))
+        @:}
     }
     @for(int i = 0; i < Model.OneOfInfo.Count; i++)
     {
@@ -221,10 +293,10 @@ public sealed class @Model.TypeInfo.Name : MessageBase
     }
     else
     {
-    @:bool has@(Model.ToUpperCamel(@val.Name));
+    @:bool has@(Model.ToUpperCamel(@val.Name)) @GetHasDefaultValue(val);
     @:public bool Has@(Model.ToUpperCamel(@val.Name)) => has@(Model.ToUpperCamel(@val.Name));
     }
-    @:@Raw(GetCSharpType(val)) _@val.Name;
+    @:@Raw(GetCSharpType(val)) _@val.Name @GetDefaultValue(val);
     @:public @Raw(GetCSharpType(val)) @(Model.ToUpperCamel(@val.Name))
     @:{
     @:    get => _@val.Name;

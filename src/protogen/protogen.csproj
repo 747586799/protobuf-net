@@ -8,6 +8,8 @@
     <Title>protobuf-net command-line "global tool" for .NET code-generation from .proto schema files</Title>
     <GrpcTools>false</GrpcTools>
     <ApplicationIcon>protobuf-net.ico</ApplicationIcon>
+	<PreserveCompilationContext>true</PreserveCompilationContext>
+	<CopyRefAssembliesToPublishDirectory>true</CopyRefAssembliesToPublishDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)'!='net462'">
     <GrpcTools>true</GrpcTools>

@@ -2,6 +2,13 @@ public enum @Model.EnumInfo.Name
 {
     @foreach(var entry in @Model.EnumInfo.Values)
     {
-    @:@Model.ToUpperCamel(entry.Name) = @entry.Number,
+        @if(entry.Name.ToLower().EndsWith("_null") && entry.Number == 0)
+        {
+        @:Null = @entry.Number,
+        }
+        else
+        {
+        @:@Model.ToUpperCamel(entry.Name.Replace( @Model.EnumInfo.Name,"")) = @entry.Number,
+        }
     }
 }

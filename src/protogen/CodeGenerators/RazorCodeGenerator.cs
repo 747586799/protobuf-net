@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace protogen.CodeGenerators
 {  
@@ -23,24 +24,72 @@ namespace protogen.CodeGenerators
 
             public GetCodeNamespaceDelegate GetCodeNamespace { get; set; }
 
+            /// <summary>
+            /// 对字符串中的连续大写字母序列进行特殊处理。
+            /// 例如： "DEFAULT" -> "Default", "LevelFUND" -> "LevelFund"
+            /// </summary>
+            /// <param name="part">要处理的字符串部分</param>
+            /// <returns>处理后的字符串</returns>
+            private static string ProcessPart(string part)
+            {
+                if (string.IsNullOrEmpty(part))
+                {
+                    return string.Empty;
+                }
+
+                var resultBuilder = new StringBuilder();
+                for (int i = 0; i < part.Length; i++)
+                {
+                    if(i == 0 && char.IsLower(part[i]))
+                    {
+                        resultBuilder.Append(char.ToUpper(part[i]));
+                    }
+                    // 查找连续两个或以上的大写字母序列
+                    else if (char.IsUpper(part[i]) && i + 1 < part.Length && char.IsUpper(part[i + 1]))
+                    {
+                        int startIndex = i;
+                        // 向前查找，直到序列结束
+                        while (i + 1 < part.Length && char.IsUpper(part[i + 1]))
+                        {
+                            i++;
+                        }
+
+                        // 提取整个大写序列（例如 "FUND" 或 "DEFAULT"）
+                        string upperSequence = part.Substring(startIndex, i - startIndex + 1);
+
+                        // 首字母大写，其余转为小写
+                        resultBuilder.Append(char.ToUpper(upperSequence[0]));
+                        resultBuilder.Append(upperSequence.Substring(1).ToLower());
+                    }
+                    else
+                    {
+                        // 如果不是连续大写序列的一部分，则直接附加字符
+                        resultBuilder.Append(part[i]);
+                    }
+                }
+
+                return resultBuilder.ToString();
+            }
+
             public string ToUpperCamel(string identifier)
             {
-                if (string.IsNullOrEmpty(identifier)) return identifier;
-                // if all upper-case, make proper-case
-                if (Regex.IsMatch(identifier, "^[_A-Z0-9]*$"))
+                if (string.IsNullOrEmpty(identifier))
                 {
-                    return Regex.Replace(identifier, "(^|_)([A-Z0-9])([A-Z0-9]*)",
-                        match => match.Groups[2].Value.ToUpperInvariant() + match.Groups[3].Value.ToLowerInvariant());
+                    return identifier;
                 }
-                // if all lower-case, make proper case
-                if (Regex.IsMatch(identifier, "^[_a-z0-9]*$"))
+
+                var parts = identifier.Split('_');
+                var resultBuilder = new StringBuilder();
+
+                foreach (var part in parts)
                 {
-                    return Regex.Replace(identifier, "(^|_)([a-z0-9])([a-z0-9]*)",
-                        match => match.Groups[2].Value.ToUpperInvariant() + match.Groups[3].Value.ToLowerInvariant());
+                    if (!string.IsNullOrEmpty(part))
+                    {
+                        resultBuilder.Append(ProcessPart(part));
+                    }
                 }
-                // just remove underscores - leave their chosen casing alone
-                string res = identifier.Replace("_", "");
-                return res.Substring(0, 1).ToUpper() + res.Substring(1);
+
+                return resultBuilder.ToString();
             }
             public string ToLowerCamel(string val)
             {
@@ -170,11 +219,20 @@ namespace protogen.CodeGenerators
                         res = proto.TypeName.Substring(1);
                     else
                         res = proto.TypeName;
+                    res = res.Replace(".", ".Types.");
                 }
                 else
-                    res = proto.TypeName.Replace(package, name);
+                {
+                    res = proto.TypeName.Replace(package, "");
+                    if (res.StartsWith("."))
+                        res = res.Substring(1);
+                    res = res.Replace(".", ".Types.");
+                    res = name+ "." + res;
+                }
                 if (res.StartsWith("."))
                     res = res.Substring(1);
+                Console.WriteLine($"GetMessageTypeName0 {res}");
+
                 return res;
             }
 
@@ -310,6 +368,10 @@ namespace protogen.CodeGenerators
                         return res;
                 }
                 return null;
+
+
+
+
             }
         }
         public class EnumModel : ModelBase
@@ -392,6 +454,7 @@ namespace protogen.CodeGenerators
                 hasTemplate= true;
                 foreach(var i in set.Files)
                 {
+                    Console.WriteLine(i);
                     if (i.EnumTypes.Count == 0 && i.MessageTypes.Count == 0)
                         continue;
                     if (!string.IsNullOrEmpty(ignorePackage) && i.Package.StartsWith(ignorePackage))
