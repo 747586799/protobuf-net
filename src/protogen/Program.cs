@@ -16,6 +16,7 @@ namespace protogen
         {
             try
             {
+                Console.WriteLine("12234");
                 string outPath = null; // -o{FILE}, --descriptor_set_out={FILE}
                 bool version = false; // --version
                 bool help = false; // -h, --help
